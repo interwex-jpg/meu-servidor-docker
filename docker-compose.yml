@@ -1,0 +1,116 @@
+
+services:
+  # --- STACK N8N E FERRAMENTAS ---
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: always
+    ports:
+      - "9090:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./portainer_data:/data
+    networks:
+      - minha-stack-net
+
+  postgres:
+    image: postgres:15
+    container_name: postgres_n8n
+    restart: always
+    environment:
+      - POSTGRES_USER=n8n
+      # AÇÃO NECESSÁRIA: SUBSTITUA PELA SUA SENHA FORTE
+      - POSTGRES_PASSWORD=123456
+      - POSTGRES_DB=n8n
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    networks:
+      - minha-stack-net
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=n8n
+      # AÇÃO NECESSÁRIA: USE A MESMA SENHA DO POSTGRES ACIMA
+      - DB_POSTGRESDB_PASSWORD=123456
+      - GENERIC_TIMEZONE=America/Sao_Paulo
+      - WEBHOOK_URL=http://46.202.144.183:5678/
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+    networks:
+      - minha-stack-net
+    depends_on:
+      - postgres
+
+  whatsapp-api:
+
+    image: wppconnect/server-cli:latest
+    container_name: whatsapp-api
+    restart: always
+    ports:
+      - "8080:21465"
+    environment:
+      # AÇÃO NECESSÁRIA: COLOQUE UM TOKEN SEGURO AQUI
+      - TOKEN=
+    volumes:
+      - ./whatsapp_data:/usr/src/app/tokens
+    networks:
+      - minha-stack-net
+
+  # --- STACK ERPNext v15 --
+  erpnext-nginx:
+    image: frappe/frappe-nginx:latest
+    container_name: erpnext-nginx
+    restart: always
+    ports:
+      - "8081:8080" # Acessaremos o ERPNext na porta 8081
+    volumes:
+      - erpnext_sites:/var/www/html/sites
+      - erpnext_logs:/var/log/nginx
+    networks:
+      - minha-stack-net
+
+  erpnext-python:
+    image: frappe/erpnext:latest
+    container_name: erpnext-python
+    restart: always
+    volumes:
+      - erpnext_sites:/home/frappe/frappe-bench/sites
+      - erpnext_logs:/home/frappe/frappe-bench/logs
+    networks:
+      - minha-stack-net
+
+  redis-cache:
+    image: redis:6.2-alpine
+    container_name: redis-cache
+    restart: always
+    networks:
+      - minha-stack-net
+
+  redis-queue:
+    image: redis:6.2-alpine
+    container_name: redis-queue
+    restart: always
+    networks:
+      - minha-stack-net
+
+# Redes e Volumes para todos os serviços
+networks:
+  minha-stack-net:
+    driver: bridge
+
+volumes:
+  portainer_data:
+  postgres_data:
+  n8n_data:
+  whatsapp_data:
+  erpnext_sites:
+  erpnext_logs:
